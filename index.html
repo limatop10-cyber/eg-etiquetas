@@ -467,8 +467,8 @@ function zpl(l,copias=1){const esc=s=>String(s??'').replace(/[\^~]/g,'');
   if(extra){L.push(`^FO20,${y}^A0N,18,18^FB440,1,0,L^FD${esc(extra)}^FS`);y+=22;}
   L.push(`^FO20,${y}^GB440,2,2^FS`);y+=8;
   L.push(`^FO20,${y}^A0N,20,20^FDRESP.: ${esc((l.responsavel_nome||'').toUpperCase())}^FS`,`^FO20,${y+22}^A0N,16,16^FB330,1,0,L^FD${esc(U.nome_fantasia.toUpperCase())}^FS`,
-    `^FO20,${y+40}^A0N,15,15^FDCNPJ ${U.cnpj}  CEP ${U.cep}^FS`,`^FO20,${y+58}^A0N,15,15^FB330,1,0,L^FD${esc(U.endereco)}, ${U.cidade}-${U.uf}^FS`,
-    `^FO20,${y+78}^A0N,18,18^FD#${pad(l.numero,6)}^FS`,`^FO360,${y}^BQN,2,3^FDQA,EG:${U.codigo}:${pad(l.numero,6)}^FS`,`^PQ${copias}^XZ`);
+    `^FO20,${y+40}^A0N,15,15^FDCNPJ ${U.cnpj}  CEP ${U.cep}^FS`,`^FO20,${y+56}^A0N,14,14^FB330,2,0,L^FD${esc(U.endereco)}, ${U.cidade}-${U.uf}^FS`,
+    `^FO200,${y}^A0N,18,18^FB150,1,0,R^FD#${pad(l.numero,6)}^FS`,`^FO360,${y}^BQN,2,3^FDQA,EG:${U.codigo}:${pad(l.numero,6)}^FS`,`^PQ${copias}^XZ`);
   return L.filter(Boolean).join('\n');}
 
 // ---------- actions ----------
