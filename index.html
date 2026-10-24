@@ -478,22 +478,30 @@ $('#btnBack').onclick=()=>{st.step=3;render();};
 $('#btnZpl').onclick=()=>{$('#modalTitle').textContent='ZPL · '+st.prod.nome;$('#modalPre').textContent=zpl(previewLabel(),+$('#qty').value);$('#modal').classList.add('open');};
 $('#modalClose').onclick=()=>$('#modal').classList.remove('open');
 $('#btnCopy').onclick=()=>{navigator.clipboard?.writeText($('#modalPre').textContent).then(()=>toast('ZPL copiado'));};
+const agenteOnline=()=>!!(PONTO&&PONTO.visto_em&&(Date.now()-new Date(PONTO.visto_em))<60000);
+let emitindo=false;
 $('#btnPrint').onclick=async()=>{
-  const qty=+$('#qty').value||1;const x=formExtra();const dias=st.val.horas?null:+($('#fDias').value||st.val.dias);
+  if(emitindo)return;
+  const qty=Math.min(99,Math.max(1,+$('#qty').value||1));const x=formExtra();const dias=st.val.horas?null:+($('#fDias').value||st.val.dias);
+  if(qty>5&&!confirm(`Emitir ${qty} etiquetas de "${st.prod.nome}"?`))return;
+  if(PONTO&&!agenteOnline()&&!confirm('A impressora está OFFLINE.\n\nAs etiquetas ficam na fila e saem sozinhas quando ela voltar. NÃO emita de novo.\n\nEmitir mesmo assim?'))return;
+  emitindo=true;
   $('#btnPrint').disabled=true;$('#btnPrint').textContent='Gravando…';
-  const made=[];
+  const made=[];let falha=null;
   for(let i=0;i<qty;i++){
     const {data,error}=await sb.rpc('emitir_etiqueta',{p_unidade:U.id,p_produto:st.prod.id,p_metodo:st.val.metodo,p_status:x.status||null,p_dias:dias,p_horas:st.val.horas||null,p_responsavel:st.resp,p_extra:{preco_venda:x.preco_venda,validade_original:x.validade_original,medida:x.medida||null,marca:x.marca||null,sif:x.sif||null,lote:x.lote||null}});
-    if(error){toast('Erro ao gravar: '+error.message);$('#btnPrint').disabled=false;$('#btnPrint').textContent='Imprimir etiqueta';return;}
+    if(error){falha=error.message;break;}
     made.push(data);
   }
+  if(!made.length){toast('Erro ao gravar: '+falha);emitindo=false;$('#btnPrint').disabled=false;$('#btnPrint').textContent='Imprimir etiqueta';return;}
+  if(falha)alert(`Atenção: só ${made.length} de ${qty} etiquetas foram gravadas (${falha}).\nAs ${made.length} gravadas serão impressas. NÃO repita as ${qty}; emita só as que faltam.`);
   U.seq_etiqueta=made[made.length-1].numero;
   if(PONTO){const jobs=made.map(l=>({ponto_id:PONTO.id,etiqueta_id:l.id,zpl:zpl(l,1),copias:1}));const {error}=await sb.from('print_job').insert(jobs);if(error)toast('Etiqueta gravada, mas fila de impressão falhou: '+error.message);}
   const rec=[st.prod.id,...JSON.parse(localStorage.getItem('eg_recent_'+U.codigo)||'[]').filter(i=>i!==st.prod.id)].slice(0,6);localStorage.setItem('eg_recent_'+U.codigo,JSON.stringify(rec));
   const pa=$('#printArea');pa.innerHTML=made.map(labelHTML).join('');renderQRs(pa);
-  if(!PONTO||!(PONTO.visto_em&&(Date.now()-new Date(PONTO.visto_em))<60000))setTimeout(()=>window.print(),250);
+  if(!PONTO)setTimeout(()=>window.print(),250); // sem agente cadastrado: impressão do navegador. Com agente, só a fila (evita imprimir em dobro)
   toast(`${qty} etiqueta${qty>1?'s':''} gravada${qty>1?'s':''} · #${pad(made[0].numero,6)}${qty>1?'–#'+pad(made.at(-1).numero,6):''}`);
-  $('#btnPrint').disabled=false;$('#btnPrint').textContent='Imprimir etiqueta';
+  emitindo=false;$('#btnPrint').disabled=false;$('#btnPrint').textContent='Imprimir etiqueta';
   updateCounts();st.step=1;st.prod=null;st.val=null;render();
 };
 
