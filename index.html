@@ -496,7 +496,7 @@ $('#btnPrint').onclick=async()=>{
   if(!made.length){toast('Erro ao gravar: '+falha);emitindo=false;$('#btnPrint').disabled=false;$('#btnPrint').textContent='Imprimir etiqueta';return;}
   if(falha)alert(`Atenção: só ${made.length} de ${qty} etiquetas foram gravadas (${falha}).\nAs ${made.length} gravadas serão impressas. NÃO repita as ${qty}; emita só as que faltam.`);
   U.seq_etiqueta=made[made.length-1].numero;
-  if(PONTO){const jobs=made.map(l=>({ponto_id:PONTO.id,etiqueta_id:l.id,zpl:zpl(l,1),copias:1}));const {error}=await sb.from('print_job').insert(jobs);if(error)toast('Etiqueta gravada, mas fila de impressão falhou: '+error.message);}
+  if(PONTO){const jobs=[{ponto_id:PONTO.id,etiqueta_id:made[0].id,zpl:made.map(l=>zpl(l,1)).join('\n'),copias:1}]; /* 1 trabalho por lote: o agente escreve na impressora uma vez só (evita EBUSY) */const {error}=await sb.from('print_job').insert(jobs);if(error)toast('Etiqueta gravada, mas fila de impressão falhou: '+error.message);}
   const rec=[st.prod.id,...JSON.parse(localStorage.getItem('eg_recent_'+U.codigo)||'[]').filter(i=>i!==st.prod.id)].slice(0,6);localStorage.setItem('eg_recent_'+U.codigo,JSON.stringify(rec));
   const pa=$('#printArea');pa.innerHTML=made.map(labelHTML).join('');renderQRs(pa);
   if(!PONTO)setTimeout(()=>window.print(),250); // sem agente cadastrado: impressão do navegador. Com agente, só a fila (evita imprimir em dobro)
@@ -535,7 +535,7 @@ async function renderProd(per){
   const lim=new Date();if(per==='hoje')lim.setHours(0,0,0,0);else lim.setDate(lim.getDate()-(+per));
   const {data}=await sb.from('etiqueta').select('id,numero,produto_nome,metodo,manipulacao_em,validade_em,responsavel_nome,baixa_motivo,print_job(status)').eq('unidade_id',U.id).gte('manipulacao_em',lim.toISOString()).order('manipulacao_em',{ascending:false}).limit(300);
   const rows=data||[];const js={pendente:'<span class="tag warn">na fila</span>',imprimindo:'<span class="tag warn">imprimindo</span>',concluido:'<span class="tag ok">impressa</span>',erro:'<span class="tag bad">erro</span>'};
-  $('#tbProd').innerHTML=rows.length?rows.map(l=>{const d=new Date(l.manipulacao_em);const j=l.print_job?.[0]?.status;return `<tr><td class="mono">${fmt(d)} ${pad(d.getHours())}:${pad(d.getMinutes())}</td><td class="mono">#${pad(l.numero,6)}</td><td><b>${l.produto_nome}</b>${l.baixa_motivo?' <span class="tag bad">'+l.baixa_motivo+'</span>':''}</td><td>${METODO[l.metodo]}</td><td class="mono">${fmt(l.validade_em)}</td><td>${l.responsavel_nome||''}</td><td>${j?js[j]:'<span class="tag">navegador</span>'}</td></tr>`}).join(''):`<tr><td colspan="7" class="empty" style="border:0">Sem etiquetas no período.</td></tr>`;}
+  $('#tbProd').innerHTML=rows.length?rows.map(l=>{const d=new Date(l.manipulacao_em);const j=l.print_job?.[0]?.status;return `<tr><td class="mono">${fmt(d)} ${pad(d.getHours())}:${pad(d.getMinutes())}</td><td class="mono">#${pad(l.numero,6)}</td><td><b>${l.produto_nome}</b>${l.baixa_motivo?' <span class="tag bad">'+l.baixa_motivo+'</span>':''}</td><td>${METODO[l.metodo]}</td><td class="mono">${fmt(l.validade_em)}</td><td>${l.responsavel_nome||''}</td><td>${j?js[j]:(PONTO?'<span class="tag">no lote</span>':'<span class="tag">navegador</span>')}</td></tr>`}).join(''):`<tr><td colspan="7" class="empty" style="border:0">Sem etiquetas no período.</td></tr>`;}
 
 // ---------- controlados (estoque por etiqueta) ----------
 const CTRL_COR={frozen:'#2f6fd6',cold:'#1f9d6a',room_temperature:'#e0a020',hot:'#d64545'};
